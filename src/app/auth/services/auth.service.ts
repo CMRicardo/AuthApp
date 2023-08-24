@@ -7,7 +7,9 @@ import {
   AuthStatus,
   CheckTokenResponse,
   LoginResponse,
+  NewUser,
   User,
+  RegisterResponse,
 } from '../interfaces';
 
 @Injectable({
@@ -46,7 +48,11 @@ export class AuthService {
   checkAuthStatus(): Observable<boolean> {
     const url = `${this.baseUrl}/auth/check-token`;
     const token = localStorage.getItem('token');
-    if (!token) return of(false);
+    if (!token) {
+      // El método "logout" ya asigna el notAuthenticated
+      this.logout();
+      return of(false);
+    }
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
 
     return this.http.get<CheckTokenResponse>(url, { headers }).pipe(
@@ -55,6 +61,22 @@ export class AuthService {
         this._authStatus.set(AuthStatus.notAuthenticated);
         return of(false);
       })
+    );
+  }
+
+  logout() {
+    this._currentUser.set(null);
+    this._authStatus.set(AuthStatus.notAuthenticated);
+    localStorage.removeItem('token');
+  }
+
+  register({ email, password, name }: NewUser): Observable<boolean> {
+    const url = `${this.baseUrl}/auth/register`;
+    const body = { email, password, name };
+
+    return this.http.post<RegisterResponse>(url, body).pipe(
+      map(({ user, token }) => this.setAuthentication(user, token)),
+      catchError((err) => throwError(() => err.error.message))
     );
   }
 }
